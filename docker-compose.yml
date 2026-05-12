@@ -1,0 +1,59 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: movicol-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-movicol}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-movicol_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-movicol}
+    ports:
+      - "5432:5432"
+    volumes:
+      - movicol_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U movicol"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ai:
+    image: colombolabs/movicol-ai:latest
+    container_name: movicol-ai
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-movicol}:${POSTGRES_PASSWORD:-movicol_dev}@db:5432/${POSTGRES_DB:-movicol}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  backend:
+    image: colombolabs/movicol-backend:latest
+    container_name: movicol-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USERNAME=${POSTGRES_USER:-movicol}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-movicol_dev}
+      - DB_DATABASE=${POSTGRES_DB:-movicol}
+      - AI_SERVICE_URL=http://ai:8000
+    depends_on:
+      db:
+        condition: service_healthy
+      ai:
+        condition: service_started
+
+  frontend:
+    image: colombolabs/movicol-frontend:latest
+    container_name: movicol-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  movicol_pgdata:
