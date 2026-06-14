@@ -4,23 +4,28 @@ Orquestación Docker Compose para todo el stack MoviCol.
 
 ## Servicios
 
-| Servicio | Imagen | Puerto | Descripción |
-|----------|--------|--------|-------------|
-| PostGIS | `postgis/postgis:16-3.4` | 5432 | Base de datos espacial |
-| AI | `colombolabs/movicol-ai:latest` | 8000 | GNN + agente LLM |
-| Backend | `colombolabs/movicol-backend:latest` | 3001 | API Gateway + WebSocket |
-| Frontend | `colombolabs/movicol-frontend:latest` | 3000 | UI React |
+| Servicio | Puerto | Descripción |
+|----------|--------|-------------|
+| PostGIS | 5432 | Base de datos espacial |
+| AI | 8000 | GNN predictions + agente LLM (FastAPI) |
+| Backend | 3001 | API Gateway + WebSocket (NestJS) |
+| Frontend | 3000 | UI React + Leaflet (Nginx) |
 
 ## Quick Start
 
 ```bash
+# 1. Configurar
 cp .env.example .env
-# Editar .env → agregar OPENAI_API_KEY
+# Editar .env → agregar OPENAI_API_KEY (opcional)
 
-docker compose up -d
+# 2. Levantar (build desde source)
+docker compose -f docker-compose.dev.yml up -d --build
 
-# Verificar
-docker compose ps
+# 3. Verificar
+docker compose -f docker-compose.dev.yml ps
+curl http://localhost:8000/health    # AI
+curl http://localhost:3001/health    # Backend
+open http://localhost:3000           # Frontend
 ```
 
 ## URLs
@@ -33,25 +38,33 @@ docker compose ps
 | AI API | http://localhost:8000 |
 | Swagger AI | http://localhost:8000/docs |
 
-## Variables de entorno
-
-```env
-POSTGRES_USER=movicol
-POSTGRES_PASSWORD=movicol_dev
-POSTGRES_DB=movicol
-OPENAI_API_KEY=sk-xxx
-```
-
-## Comandos útiles
+## Comandos
 
 ```bash
-docker compose up -d          # Levantar todo
-docker compose down           # Parar todo
-docker compose logs -f ai     # Ver logs del AI service
-docker compose ps             # Estado de servicios
+docker compose -f docker-compose.dev.yml up -d --build   # Levantar
+docker compose -f docker-compose.dev.yml down            # Parar
+docker compose -f docker-compose.dev.yml logs -f ai      # Logs AI
+docker compose -f docker-compose.dev.yml ps              # Estado
 ```
 
-## Requisitos
+## Sin Docker (desarrollo local)
 
-- Docker 24+
-- Docker Compose v2
+```bash
+# Terminal 1: AI
+cd ../movicol-ai && make dev
+
+# Terminal 2: Backend
+cd ../movicol-backend && npm run dev
+
+# Terminal 3: Frontend
+cd ../movicol-frontend && npm run dev
+```
+
+## Pipeline ML
+
+```bash
+cd ../movicol-ai
+make clean-graph   # Limpiar grafo
+make train         # Entrenar modelo GAT
+make test          # Verificar
+```

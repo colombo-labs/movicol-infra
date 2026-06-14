@@ -1,0 +1,75 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: movicol-db
+    environment:
+      POSTGRES_USER: movicol
+      POSTGRES_PASSWORD: movicol_dev
+      POSTGRES_DB: movicol
+    ports:
+      - "5432:5432"
+    volumes:
+      - movicol_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U movicol"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ai:
+    build:
+      context: ../movicol-ai
+      dockerfile: Dockerfile
+    container_name: movicol-ai
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://movicol:movicol_dev@db:5432/movicol
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - MODEL_PATH=models/gat_best.pt
+      - GRAPH_PATH=models/graph_clean.graphml
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  backend:
+    build:
+      context: ../movicol-backend
+      dockerfile: Dockerfile
+    container_name: movicol-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USERNAME=movicol
+      - DB_PASSWORD=movicol_dev
+      - DB_DATABASE=movicol
+      - AI_SERVICE_URL=http://ai:8000
+      - CORS_ORIGINS=http://localhost:3000
+    depends_on:
+      db:
+        condition: service_healthy
+      ai:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ../movicol-frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:3001
+    container_name: movicol-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  movicol_pgdata:
