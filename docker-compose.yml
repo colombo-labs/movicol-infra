@@ -16,6 +16,19 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: movicol-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - movicol_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   ai:
     image: colombolabs/movicol-ai:latest
     container_name: movicol-ai
@@ -41,8 +54,12 @@ services:
       - DB_PASSWORD=${POSTGRES_PASSWORD:-movicol_dev}
       - DB_DATABASE=${POSTGRES_DB:-movicol}
       - AI_SERVICE_URL=http://ai:8000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       ai:
         condition: service_started
@@ -50,6 +67,10 @@ services:
   frontend:
     image: colombolabs/movicol-frontend:latest
     container_name: movicol-frontend
+    build:
+      context: ../movicol-frontend
+      args:
+        VITE_API_URL: http://localhost:3001
     ports:
       - "3000:3000"
     depends_on:
@@ -57,3 +78,4 @@ services:
 
 volumes:
   movicol_pgdata:
+  movicol_redis:
