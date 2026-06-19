@@ -67,6 +67,10 @@ services:
   frontend:
     image: colombolabs/movicol-frontend:latest
     container_name: movicol-frontend
+    build:
+      context: ../movicol-frontend
+      args:
+        VITE_API_URL: http://localhost:3001
     ports:
       - "3000:3000"
     depends_on:
