@@ -7,13 +7,26 @@ services:
       POSTGRES_PASSWORD: movicol_dev
       POSTGRES_DB: movicol
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - movicol_pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U movicol"]
       interval: 5s
       timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: movicol-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - movicol_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
       retries: 5
 
   ai:
@@ -53,10 +66,16 @@ services:
       - DB_DATABASE=movicol
       - AI_SERVICE_URL=http://ai:8000
       - CORS_ORIGINS=http://localhost:3000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - ../movicol-data/exports/backend:/movicol-data/exports
     depends_on:
       db:
         condition: service_healthy
       ai:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   frontend:
@@ -73,3 +92,4 @@ services:
 
 volumes:
   movicol_pgdata:
+  movicol_redis:
